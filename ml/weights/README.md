@@ -1,0 +1,1 @@
+Model locations: ../models/person_ft.pt is the default trained checkpoint. ../yolo11n.pt, ../yolo11m.pt, ../yolo11x.pt are pretrained weights. This directory is reserved for additional checkpoints; no empty or fabricated model files are supplied.

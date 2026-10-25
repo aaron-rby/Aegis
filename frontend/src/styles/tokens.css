@@ -1,0 +1,33 @@
+:root {
+  /* surfaces */
+  --bg-0:#060913; --bg-1:#0b1020;
+  --glass-1: rgba(255,255,255,.045);
+  --glass-2: rgba(255,255,255,.07);
+  --glass-3: rgba(255,255,255,.11);
+  --stroke-1: rgba(255,255,255,.08);
+  --stroke-2: rgba(255,255,255,.16);
+  --highlight: inset 0 1px 0 rgba(255,255,255,.20);
+  --shadow-1: 0 8px 24px -12px rgba(0,0,0,.55);
+  --shadow-2: 0 24px 60px -24px rgba(0,0,0,.7);
+
+  /* text */
+  --text-0:#f4f6ff; --text-1:rgba(244,246,255,.82); --text-2:rgba(244,246,255,.65);
+
+  /* brand + status */
+  --brand-a:#6366f1; --brand-b:#22d3ee; --brand-c:#a855f7;
+  --danger:#fb7185; --danger-glow:rgba(251,113,133,.35);
+  --success:#34d399; --success-glow:rgba(52,211,153,.28);
+  --warning:#fbbf24; --warning-glow:rgba(251,191,36,.30);
+  --muted:#94a3b8;
+
+  /* shape + rhythm */
+  --r-sm:10px; --r-md:16px; --r-lg:22px; --r-xl:28px; --r-pill:999px;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px; --sp-7:48px;
+  --ease: cubic-bezier(.2,.8,.2,1);
+  --dur-fast:150ms; --dur:250ms; --dur-slow:500ms;
+
+  /* type */
+  --font-body:'Inter Variable',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-head:'Space Grotesk Variable','Inter Variable',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono Variable',ui-monospace,Consolas,monospace;
+}

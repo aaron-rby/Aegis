@@ -1,0 +1,15 @@
+@keyframes orb-drift{from{transform:translate3d(-5%,-4%,0)}to{transform:translate3d(8%,6%,0)}}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.75)}}
+@keyframes fade-up{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes ring-pulse{0%{box-shadow:0 0 0 0 var(--brand-b)}70%{box-shadow:0 0 0 9px transparent}100%{box-shadow:0 0 0 0 transparent}}
+@keyframes banner-in{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes modal-in{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+@keyframes skeleton{0%{background-position:200% 0}100%{background-position:-200% 0}}
+@keyframes shine{from{transform:translateX(-220%) skewX(-20deg)}to{transform:translateX(320%) skewX(-20deg)}}
+.photo-card,.burst-card{animation:fade-up var(--dur-slow) var(--ease) both;animation-delay:calc(var(--i)*40ms)}
+.photo-card.is-new{animation:fade-up var(--dur-slow) var(--ease) both,ring-pulse 1.1s var(--ease) 2}
+.status-banner{animation:banner-in var(--dur) var(--ease) both}.viewer{animation:modal-in var(--dur) var(--ease) both}
+.orb{animation:orb-drift 28s ease-in-out infinite alternate;will-change:transform}.orb-b{animation-duration:34s;animation-delay:-8s}.orb-c{animation-duration:24s;animation-delay:-13s}
+.live-dot,.badge-pending .badge-dot{animation:pulse-dot 2s ease-in-out infinite}
+@media(prefers-reduced-motion:reduce){:root{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}.orb{will-change:auto}.photo-card,.burst-card{transform:none!important}.photo-card::after{display:none!important}}
+@media(prefers-contrast:more){:root{--stroke-1:rgba(255,255,255,.28);--stroke-2:rgba(255,255,255,.52);--text-1:#f4f6ff;--text-2:#dce5f3}.glass{background:rgba(17,24,42,.97)}}

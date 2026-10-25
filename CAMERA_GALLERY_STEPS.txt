@@ -1,0 +1,49 @@
+ESP32-CAM GALLERY + ML START ORDER
+
+Windows to keep open: exactly TWO batch-file terminal windows plus Arduino IDE
+Serial Monitor. No separate PowerShell window or typed PowerShell command is
+needed. Do not paste the contents of a .bat file into PowerShell.
+
+Verified on 20 October 2026:
+- Gallery: START_GALLERY.bat -> local-photo-gallery/server.py, port 5000.
+- ML: START_CAMERA_ML.bat -> ml/watch_gallery.py, one watcher. Windows
+  lists two Python processes for this one launcher; that is normal.
+- Arduino Serial Monitor: connected to the main ESP32 on COM6, 115200 baud.
+- Gallery had 340 photos and 45 predictions; latest received photo was
+  582ABD7BB88C-175cc9f9-7-5.jpg at 18:34:53.
+
+To start next time:
+1. Turn on the Wi-Fi hotspot used by the camera and laptop. Check the laptop Wi-Fi IPv4
+   address. The camera firmware URL must use that address plus :5000/upload,
+   never localhost. It was http://172.20.10.7:5000/upload on this check.
+2. Double-click START_GALLERY.bat in this folder. This opens the first terminal
+   window. Leave it open while capturing photos.
+   If http://localhost:5000/ already works, do not start a second gallery.
+3. Double-click START_CAMERA_ML.bat in this folder ONCE. This opens the second
+   terminal window. Leave it open while getting predictions. Wait for:
+   Ready. Send a NEW camera trigger.
+4. Power the ESP32-CAM with stable 5V and the main ESP32 via USB. Keep a common
+   ground and the trigger wire main GPIO19 -> camera GPIO13. Camera GPIO0 must
+   be disconnected from GND for normal boot.
+5. Open Arduino Serial Monitor for the main ESP32 on COM6 at 115200 baud.
+   Wait for MAIN ... READY. If only csum err appears, resolve the main board's
+   boot/flash problem before testing camera triggers.
+6. Open http://localhost:5000/ and note the current photo count. Send T once
+   from the main Serial Monitor, or trigger PIR plus ultrasonic detection.
+7. Wait for the burst to finish. A complete burst adds five photos and the
+   camera log says BURST COMPLETE: 5/5 photos saved on PC.
+8. The gallery shows ML labels after a short delay. The full results page is
+   http://localhost:5000/ml/. Confirm each new image has a prediction.
+9. Repeat with a clearly visible person and then an empty scene.
+
+Success criteria:
+- Camera serial output reports 5/5 successful uploads.
+- Five clear, correctly aimed images appear in the gallery.
+- Five corresponding ML results appear without PROCESSING ERROR.
+- A clearly visible person receives a correct person box.
+- An empty scene does not receive a person box.
+
+Current limitation:
+The watcher records predictions but does not send the verdict back to the main
+ESP32 or control the physical buzzer. The ML model currently used by this
+watcher is YOLO11m at a 0.35 person threshold.

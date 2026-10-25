@@ -1,0 +1,82 @@
+/* Camera frames are 4:3. Preserve the complete frame in every preview. */
+.photo-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr));
+}
+
+.photo-frame {
+  aspect-ratio: 4 / 3;
+  background: #080d19;
+}
+
+.photo-frame img,
+.burst-slot img {
+  object-fit: contain;
+  object-position: center;
+}
+
+.photo-card:hover .photo-frame img,
+.burst-card:hover .burst-slot img {
+  transform: none;
+}
+
+.photo-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 43px;
+  padding: 10px 14px 0;
+}
+
+.photo-badge-row {
+  position: static;
+  min-width: 0;
+}
+
+.burst-chip {
+  position: static;
+  flex: none;
+  margin-left: auto;
+}
+
+.photo-details {
+  padding-top: 10px;
+}
+
+.card-actions {
+  opacity: 1;
+  transform: none;
+}
+
+.card-actions button {
+  min-height: 32px;
+  padding-inline: 11px;
+}
+
+.burst-slot {
+  background: #080d19;
+}
+
+.burst-slot img {
+  opacity: 1;
+}
+
+.viewer-image {
+  object-fit: contain;
+  object-position: center;
+}
+
+@media (max-width: 480px) {
+  .photo-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .photo-meta-row {
+    flex-wrap: wrap;
+  }
+
+  .viewer-image-controls {
+    gap: 8px;
+    padding: 10px;
+  }
+}

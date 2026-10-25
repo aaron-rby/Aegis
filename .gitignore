@@ -1,0 +1,120 @@
+# Local snapshots include captured photos, model weights, and camera settings.
+backups/
+
+# Generated data and local runtimes.
+storage/
+backend/config.local.json
+frontend/node_modules/
+frontend/dist/
+ml/venv/
+ml/.venv/
+ml/venv_legacy/
+**/.venv/
+**/venv/
+**/__pycache__/
+*.log
+*.err
+*.out
+*.pt
+*.zip
+*.part
+frontend/preview*.png
+*.py[cod]
+*.tmp
+
+# Secrets and machine-specific settings
+.env
+.env.*
+!.env.example
+!.env.template
+**/config.local.*
+firmware/**/config.h
+firmware/**/secrets.h
+# These existing sketches contain embedded Wi-Fi passwords and access tokens.
+firmware/main_ml_alarm/mlids/mlids.ino
+firmware/camera_resolution_test/camera_resolution_test.ino
+*.pem
+*.key
+
+# Python tooling and environments
+**/venv_legacy/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# JavaScript dependencies and generated builds
+**/node_modules/
+frontend/.vite/
+frontend/coverage/
+
+# Camera evidence, datasets and ML-generated files
+ml/captures/
+ml/data/
+ml/data_prepared/
+ml/raw/
+ml/train_data/
+ml/train_data_legacy/
+ml/camo_eval/
+ml/camo_test/
+ml/results*/
+ml/runs/
+ml/**/*.jpg
+ml/**/*.jpeg
+ml/**/*.png
+ml/**/*.avif
+*.onnx
+*.engine
+*.tflite
+*.safetensors
+*.h5
+*.hdf5
+*.npz
+*.npy
+*.tar
+*.tar.gz
+*.7z
+*.rar
+
+# Local databases and firmware build products
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.lock.part
+*.exe
+*.elf
+*.bin
+*.hex
+*.o
+*.a
+
+# Generated presentation / document render folders
+.presentation_build/
+output/
+presentation_output/
+presentation-revision/
+presentation-summary/
+presentation-update/
+assessment9-render/
+render-assessment/
+
+# Operating system and editor files
+Thumbs.db
+Desktop.ini
+.DS_Store
+.vscode/
+.idea/
+*~
+
+.git-backup/
+
+.git-backup/
+
+.git-backup/
+
+# Local hardware test credentials and temporary fixture folders
+**/.device_token
+**/sentinel-hardware-fixture-*/
