@@ -136,3 +136,22 @@ Desktop.ini
 **/.venv*/
 /ml/.cuda-wheels/
 /ml/evaluation/
+
+# Unrelated course artifacts and obsolete local workspaces
+/*.docx
+/*.pdf
+/*.png
+/*.jpg
+/*.jpeg
+/*.py
+/assessment*
+/PHASE*.md
+/FULL_PROJECT_ROADMAP.md
+/CAMERA_GALLERY_STEPS.txt
+/START_GALLERY.bat
+/artifact.md
+/tools/hardware-monitor-work/
+/frontend/*preview*.jpg
+/frontend/overview-photo-alignment.jpg
+/frontend/redesign-events-desktop.jpg
+/ml/ASSESSMENT*.pdf

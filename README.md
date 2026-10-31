@@ -137,7 +137,7 @@ scripts/       Launch, health-check, backup and optional GPU tools
 docs/          Architecture, results, references, photos and final PDFs
 ```
 
-Newer local source takes priority. Missing operational files retained from the existing repository are listed in [source recovery notes](docs/source-recovery.md). Earlier assessment documents and phase records remain historical material. Local environments, captures, databases, weights and credentials are excluded from source synchronization.
+Newer local source takes priority. Missing operational files retained from the existing repository are listed in [source recovery notes](docs/source-recovery.md). Local environments, captures, databases, weights and credentials are excluded from source synchronization.
 
 ## Research and future work
 

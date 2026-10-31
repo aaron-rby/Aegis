@@ -20,8 +20,8 @@ To stop intentionally, close the ML and backend console windows (or press Ctrl+C
 
 Run `START_ALL.bat` for the backend and worker, then `START_DEV.bat` for the Vite dev server. Vite proxies `/api`, `/photos`, and `/ml-images` to port 5000. The dev URL is printed in its own window. After changes, run `npm run build` in `frontend/` for the production page.
 
-If the launcher says port 5000 belongs to another service, do not start the old `START_GALLERY.bat` or a second backend. Find the existing server first. If worker heartbeat is stale while its lock is held, inspect the worker window; a busy or hung worker must be resolved before restarting. The worker automatically requeues abandoned `processing` jobs after a crash and resumes `queued` jobs on restart.
+If the launcher says port 5000 belongs to another service, do not start a second backend. Find the existing server first. If worker heartbeat is stale while its lock is held, inspect the worker window; a busy or hung worker must be resolved before restarting. The worker automatically requeues abandoned `processing` jobs after a crash and resumes `queued` jobs on restart.
 
 Run `BACKUP_DATA.bat` after important tests and before moving paths. It makes separate `captures/` and `predictions/` folders plus a SQLite snapshot under `backups/phase5-...`. It does not delete originals. A backup made during an active burst may capture different points in time across the folders; repeat after the burst and worker finish. `storage/` and `backups/` are ignored by Git. Back up `backend/config.local.json` and the model weights separately in secure local storage if rebuilding another PC; the config contains a secret.
 
-Retain the old launchers and absolute data paths until the after-reboot, live five-frame acceptance gate is recorded in `PHASE5_STARTUP.md`.
+After a reboot, verify the complete five-frame capture, processing, alarm and rearming sequence. Record received frames and failures rather than assuming startup health proves a complete physical event.
