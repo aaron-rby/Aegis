@@ -22,19 +22,7 @@ See [project resources](docs/project-resources.md) for references and difference
 
 ## How it works
 
-```mermaid
-flowchart LR
- P[PIR motion] --> S[Main ESP32: dual sensing]
- U[Valid ultrasonic distance <=80 cm] --> S
- S -->|3 consecutive agreements| T[500 ms camera trigger]
- S --> B[Shared buzzer: 1-second sensor beep]
- T --> C[ESP32-CAM: up to 5 JPEGs]
- C -->|Wi-Fi| Q[Laptop: original images + SQLite queue]
- Q --> M[YOLO11m worker]
- M --> G[Aegis gallery: originals and annotations]
- M --> R[Fresh person result + event ID]
- R -->|ESP32 polls over Wi-Fi| A[5-second ML alarm on shared buzzer]
-```
+![Aegis system architecture and workflow](docs/assets/architecture-workflow.png)
 
 1. While **ARMED**, PIR motion and a **valid distance ≤80 cm** must agree for three consecutive samples. Disagreement or an invalid echo resets the counter. Sampling is nominally every 250 ms, rather than a guaranteed fixed response time.
 2. The main ESP32 sends a **500 ms wired trigger pulse** and requests a **1-second sensor beep**, independent of Wi-Fi. The camera captures and uploads up to five JPEGs.

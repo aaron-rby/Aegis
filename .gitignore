@@ -175,3 +175,6 @@ Desktop.ini
 /ml/original_source/test.py
 /scripts/BACKUP_PHASE1.ps1
 /scripts/START_BACKEND_PHASE2.bat
+
+# Dataset archives stay local; exclude ZIPs in any letter case.
+*.[zZ][iI][pP]
