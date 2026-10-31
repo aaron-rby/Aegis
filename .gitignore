@@ -155,3 +155,23 @@ Desktop.ini
 /frontend/overview-photo-alignment.jpg
 /frontend/redesign-events-desktop.jpg
 /ml/ASSESSMENT*.pdf
+
+# Retired local review artifacts and legacy copies
+/backend/legacy_server.py
+/frontend/DESIGN_QA.md
+/frontend/REDESIGN_NOTES.md
+/frontend/public/aegis-mark.svg
+/ml/CURRENT_REVIEW.md
+/ml/REPAIR_STATUS.md
+/ml/asset_validation.json
+/ml/dataset_audit.json
+/ml/http-smoke.json
+/ml/inference-smoke.json
+/ml/structure_audit.json
+/ml/audit_structure.py
+/ml/original_source/build_dataset.py
+/ml/original_source/detector.py
+/ml/original_source/evaluate.py
+/ml/original_source/test.py
+/scripts/BACKUP_PHASE1.ps1
+/scripts/START_BACKEND_PHASE2.bat
