@@ -1,6 +1,6 @@
 # Aegis architecture and control
 
-![System architecture from the final IDF-B report](assets/architecture-workflow.png)
+![System architecture from the final IDF-B report](assets/idf-b-system-architecture.png)
 
 *Original architecture illustration extracted from the final IDF-B report.*
 

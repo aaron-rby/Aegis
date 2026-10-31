@@ -22,7 +22,7 @@ See [project resources](docs/project-resources.md) for references and difference
 
 ## How it works
 
-![Aegis system architecture from the final IDF-B report](docs/assets/architecture-workflow.png)
+![Aegis system architecture from the final IDF-B report](docs/assets/idf-b-system-architecture.png)
 
 *System architecture from the final IDF-B report: dual sensing, ESP32-CAM capture, laptop person detection and polled alarm feedback.*
 
