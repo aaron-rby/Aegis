@@ -1,6 +1,6 @@
 {
-  "capture_dir": "C:/path/to/existing/local-photo-gallery/captures",
-  "prediction_dir": "C:/path/to/existing/ml/gallery_predictions",
+  "capture_dir": "../captures",
+  "prediction_dir": "../ml/gallery_predictions",
   "database": "../storage/app.sqlite3",
   "model_path": "../ml/yolo11m.pt",
   "host": "0.0.0.0",

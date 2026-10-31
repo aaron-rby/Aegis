@@ -1,5 +1,7 @@
+import { HIDDEN_EVENTS_KEY, parseHiddenEvents, hideEventIds, restoreEventIds, visibleEventCards } from './lib/hiddenEvents.js'
+import aegisMark from './assets/aegis-mark.svg'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Activity, ArrowUpRight, ChevronRight, Clock3, Layers3, LayoutDashboard, Menu, RefreshCw, Settings2, Shield, X } from 'lucide-react'
+import { Activity, Camera, ArrowUpRight, ChevronRight, Clock3, Layers3, LayoutDashboard, Menu, RefreshCw, Settings2, Shield, X } from 'lucide-react'
 import { useMonitor } from './hooks/useMonitor.js'
 import { useRelativeTime } from './hooks/useRelativeTime.js'
 import { FILTERS, PAGE_SIZE, formatDate, groupEvents, matchesFilter } from './lib/events.js'
@@ -30,9 +32,18 @@ export default function App() {
   const events = useMemo(() => groupEvents(monitor.photos), [monitor.photos])
   const [current, setCurrent] = useState(route)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [hiddenIds, setHiddenIds] = useState(() => { try { return parseHiddenEvents(localStorage.getItem(HIDDEN_EVENTS_KEY)) } catch { return [] } })
+  const [pendingClear, setPendingClear] = useState(null)
+  const [lastHidden, setLastHidden] = useState([])
+  const [storageWarning, setStorageWarning] = useState('')
+  const visibleEvents = useMemo(() => visibleEventCards(events, hiddenIds), [events, hiddenIds])
+  useEffect(() => { try { localStorage.setItem(HIDDEN_EVENTS_KEY, JSON.stringify(hiddenIds)); setStorageWarning('') } catch { setStorageWarning('Browser storage is unavailable. Past events will return after reloading.') } }, [hiddenIds])
   const [filter, setFilter] = useState('all')
   const [page, setPage] = useState(1)
   const [newEvents, setNewEvents] = useState(false)
+  const [captureBusy, setCaptureBusy] = useState(false)
+  const [captureMessage, setCaptureMessage] = useState('')
+  const captureLock = useRef(false)
   const [order, setOrder] = useState([])
   const openerRef = useRef(null), scrollRef = useRef(0), headingRef = useRef(null), navRef = useRef(null), menuRef = useRef(null)
   const previousRoute = useRef(current)
@@ -90,22 +101,37 @@ export default function App() {
     const lookup = new Map(events.map(event => [event.id, event]))
     return order.map(id => lookup.get(id)).filter(Boolean)
   }, [events, order])
-  const filtered = orderedEvents.filter(event => matchesFilter(event, filter))
+  const filtered = visibleEventCards(orderedEvents, hiddenIds).filter(event => matchesFilter(event, filter))
   const pages = Math.ceil(filtered.length / PAGE_SIZE), safePage = Math.min(page, Math.max(1, pages))
   const selected = current.eventId ? events.find(event => event.id === current.eventId) : null
   const title = current.eventId ? 'Event details' : NAV.find(([id]) => id === current.page)?.[1]
   const changeFilter = value => { setFilter(value); setPage(1) }
+  async function requestCapture() {
+    if (captureLock.current) return
+    captureLock.current = true; setCaptureBusy(true); setCaptureMessage('')
+    try {
+      const result = await hardware.triggerCamera()
+      setCaptureMessage(result.detail)
+      setFilter('all'); setPage(1)
+    } catch (error) { setCaptureMessage(error.message) }
+    finally { setTimeout(() => { captureLock.current = false; setCaptureBusy(false) }, 3000) }
+  }
+  function clearPastEvents() {
+    const ids = pendingClear || []
+    setHiddenIds(old => hideEventIds(old, ids)); setLastHidden(ids); setPendingClear(null)
+    setFilter('all'); setPage(1)
+  }
   const applyNew = () => { setOrder(events.map(event => event.id)); setNewEvents(false); setPage(1) }
 
   return <div className="sentinel-app">
     <a className="skip-link" href="#main-content" onClick={e => { e.preventDefault(); document.getElementById('main-content').focus() }}>Skip to content</a>
     {mobileOpen && <div className="nav-backdrop" onClick={() => setMobileOpen(false)} />}
     <aside ref={navRef} className={`sidebar ${mobileOpen ? 'sidebar--open' : ''}`} aria-label="Main navigation" {...(mobileOpen ? { role: 'dialog', 'aria-modal': true } : {})}>
-      <div className="brand"><span className="brand-symbol"><Shield size={24} strokeWidth={1.8} /></span><div><strong>Sentinel<span>AI</span></strong><small>INTRUSION MONITORING</small></div><button className="mobile-close icon-button" onClick={() => { setMobileOpen(false); menuRef.current?.focus() }} aria-label="Close navigation"><X size={19} /></button></div>
-      <div className="workspace-label"><span className="workspace-mark">S</span><div>Project workspace<small>ESP32-CAM · Local deployment</small></div></div>
+      <div className="brand"><span className="brand-symbol"><img className="aegis-brand-mark" src={aegisMark} alt="" aria-hidden="true" /></span><div><strong>Aegis</strong><small>INTRUSION MONITORING</small></div><button className="mobile-close icon-button" onClick={() => { setMobileOpen(false); menuRef.current?.focus() }} aria-label="Close navigation"><X size={19} /></button></div>
+      <div className="workspace-label"><span className="workspace-mark">A</span><div>Project workspace<small>ESP32-CAM · Local deployment</small></div></div>
       <span className="nav-label">WORKSPACE</span>
-      <nav>{NAV.map(([id, label, Icon]) => <button key={id} className={`nav-item ${current.page === id ? 'active' : ''}`} aria-current={current.page === id ? 'page' : undefined} onClick={() => navigate(id)}><Icon size={19} /><span>{label}</span>{id === 'events' && events.length > 0 && <small>{events.length}</small>}{current.page === id && <ChevronRight className="nav-chevron" size={15} />}</button>)}</nav>
-      <div className="sidebar-bottom"><div className="sidebar-guide"><div className="guide-icon"><Layers3 size={18} /></div><strong>Every frame matters.</strong><p>One event. Five perspectives.<br />Review the complete picture.</p><button onClick={() => navigate('events')}>Explore events <ArrowUpRight size={14} /></button></div><button className="sidebar-health" onClick={() => navigate('system')}><span className={`connection-dot ${monitor.offline ? 'dot--amber' : monitor.loading ? 'dot--muted' : ''}`} /><div>{monitor.loading ? 'Connecting to backend' : monitor.offline ? 'Connection unavailable' : 'Backend connected'}<small>{monitor.offline ? 'Check local services' : 'Local monitoring workspace'}</small></div><ChevronRight size={15} /></button><div className="sidebar-footnote">SENTINEL AI <span>01 / LOCAL</span></div></div>
+      <nav>{NAV.map(([id, label, Icon]) => <button key={id} className={`nav-item ${current.page === id ? 'active' : ''}`} aria-current={current.page === id ? 'page' : undefined} onClick={() => navigate(id)}><Icon size={19} /><span>{label}</span>{id === 'events' && visibleEvents.length > 0 && <small>{visibleEvents.length}</small>}{current.page === id && <ChevronRight className="nav-chevron" size={15} />}</button>)}</nav>
+      <div className="sidebar-bottom"><div className="sidebar-guide"><div className="guide-icon"><Layers3 size={18} /></div><strong>Every frame matters.</strong><p>One event. Five perspectives.<br />Review the complete picture.</p><button onClick={() => navigate('events')}>Explore events <ArrowUpRight size={14} /></button></div><button className="sidebar-health" onClick={() => navigate('system')}><span className={`connection-dot ${monitor.offline ? 'dot--amber' : monitor.loading ? 'dot--muted' : ''}`} /><div>{monitor.loading ? 'Connecting to backend' : monitor.offline ? 'Connection unavailable' : 'Backend connected'}<small>{monitor.offline ? 'Check local services' : 'Local monitoring workspace'}</small></div><ChevronRight size={15} /></button><div className="sidebar-footnote">AEGIS <span>01 / LOCAL</span></div></div>
     </aside>
     <div className="workspace">
       <header className="topbar"><div className="breadcrumb"><button ref={menuRef} className="icon-button menu-button" aria-label="Open navigation" aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)}><Menu size={20} /></button><span className="breadcrumb-project">Workspace</span><ChevronRight size={13} /><strong>{title}</strong></div><div className="topbar-right"><span className="local-tag"><span />Local workspace</span><div className="topbar-separator" /><span className="topbar-date">{formatDate(new Date())}</span><button className={`icon-button ${monitor.refreshing ? 'is-refreshing' : ''}`} aria-label="Refresh monitoring data" title="Refresh monitoring data" onClick={monitor.refresh} disabled={monitor.refreshing}><RefreshCw size={16} /></button></div></header>
@@ -113,12 +139,15 @@ export default function App() {
         <div className="page-heading"><div><div className="page-eyebrow"><span />{current.eventId ? 'CAPTURE INSPECTOR' : title?.toUpperCase()}</div><h1 ref={headingRef} tabIndex={-1}>{current.eventId ? 'One event. The full picture.' : TITLES[current.page][0]}</h1><p>{current.eventId ? 'Inspect each frame and its analysis, together.' : TITLES[current.page][1]}</p></div><div className="page-heading-status"><span className={`connection-dot ${monitor.offline ? 'dot--amber' : monitor.loading ? 'dot--muted' : ''}`} /><span>{monitor.loading ? 'Connecting…' : monitor.offline ? 'Connection interrupted' : 'Connected to backend'}<small>{monitor.updatedAt ? `Updated ${lastRelative.toLowerCase()}` : 'Waiting for first response'}</small></span></div></div>
         {(monitor.offline || monitor.archiveError) && <div className="connection-banner" role="status"><Clock3 size={17} /><div><strong>{monitor.offline ? 'The backend could not be reached.' : 'The capture archive could not be refreshed.'}</strong><span>{monitor.updatedAt ? 'Previously loaded information is still available and may be out of date.' : 'Start the backend to load your saved events.'}</span></div><button onClick={monitor.refresh}>Try again <RefreshCw size={13} /></button></div>}
         {current.eventId ? selected ? <EventDetails event={selected} onBack={() => navigate('events')} /> : monitor.loading ? <Skeleton count={1} /> : <EmptyState title="Event unavailable" error action="Back to events" onAction={() => navigate('events')}>This event could not be loaded. Check the backend connection and try again.</EmptyState> : <>
-          {current.page === 'overview' && <Overview events={events} monitor={monitor} hardware={hardware} onOpen={openEvent} onNavigate={navigate} />}
+          {current.page === 'overview' && <Overview events={events} displayEvents={visibleEvents} monitor={monitor} hardware={hardware} onOpen={openEvent} onNavigate={navigate} />}
           {current.page === 'hardware' && <HardwarePage hardware={hardware} />}
           {current.page === 'events' && <>
+            <div className="manual-capture-panel"><div><strong>Capture a new event</strong><p>Request five photos through the main ESP32.</p></div><button className="button button--primary" onClick={requestCapture} disabled={captureBusy || !hardware.live || hardware.snapshot.controller_state !== 'ARMED'}><Camera size={16} />{captureBusy ? 'Sending request…' : 'Trigger camera'}</button></div>
+            <p className="manual-capture-message" role="status">{captureMessage || (!hardware.live ? 'Connect the main ESP32 in Hardware to enable manual capture.' : hardware.snapshot.controller_state !== 'ARMED' ? 'Clear the sensor zone and wait for the controller to rearm.' : 'Controller ready. New uploads will appear automatically.')}{!hardware.live && <button className="text-button" onClick={() => navigate('hardware')}>Open Hardware <ArrowUpRight size={14} /></button>}</p>
             <div className="archive-toolbar"><div className="filter-tabs" role="group" aria-label="Filter events">{FILTERS.map(([value, label]) => <button key={value} className={filter === value ? 'selected' : ''} aria-pressed={filter === value} onClick={() => changeFilter(value)}>{value === 'all' && <Layers3 size={14} />}{label}{filter === value && <span>{filtered.length}</span>}</button>)}</div><span className="archive-grouping"><Layers3 size={14} />Grouped by trigger</span></div>
+            <section className="card-visibility-tools" aria-label="Clear past events"><div><strong>Start with a fresh Events page</strong><p>Clear past event cards from this browser. All photos, backend records, ML results and datasets stay saved. New events appear automatically.</p></div><div className="card-visibility-actions">{pendingClear ? <><span>Clear {pendingClear.length} past events from this page?</span><button className="button event-delete-button" onClick={clearPastEvents}>Confirm clear</button><button className="text-button" onClick={() => setPendingClear(null)}>Cancel</button></> : <button className="button event-delete-button" disabled={!visibleEvents.length || monitor.loading || monitor.archiveError} onClick={() => setPendingClear(visibleEvents.map(event => event.id))}>Clear past events</button>}{hiddenIds.length > 0 && <button className="text-button" onClick={() => { setHiddenIds([]); setLastHidden([]); setPendingClear(null); setPage(1) }}>Restore past events ({hiddenIds.length})</button>}</div>{lastHidden.length > 0 && <p role="status">{lastHidden.length} past event{lastHidden.length === 1 ? '' : 's'} cleared from this page. Photos remain saved. <button className="text-button" onClick={() => { setHiddenIds(old => restoreEventIds(old, lastHidden)); setLastHidden([]) }}>Undo clear</button></p>}{storageWarning && <p role="status">{storageWarning}</p>}</section>
             <div className="archive-caption"><p>{filter === 'pending' ? 'Events with frames awaiting analysis or missing uploads.' : filter === 'no_person' ? 'Complete events where every frame returned no person detected.' : 'Each event holds up to five camera frames.'}</p>{newEvents && <button className="new-events-button" onClick={applyNew}>New events available <ArrowUpRight size={14} /></button>}</div>
-            {monitor.loading ? <Skeleton /> : !filtered.length ? <EmptyState title={filter === 'all' ? 'Your first event starts here.' : 'No events match this view.'} error={monitor.archiveError} action={filter === 'all' ? 'Refresh archive' : 'Show all events'} onAction={filter === 'all' ? monitor.refresh : () => changeFilter('all')}>{filter === 'all' ? 'Received camera captures will appear here, grouped into five-frame events.' : 'Choose another filter to explore your camera archive.'}</EmptyState> : <div className="events-grid">{filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE).map((event, i) => <EventCard key={event.id} event={event} index={i} onOpen={openEvent} />)}</div>}
+            {monitor.loading ? <Skeleton /> : !filtered.length ? <EmptyState title={filter === 'all' ? hiddenIds.length ? 'Ready for new events.' : 'Your first event starts here.' : 'No events match this view.'} error={monitor.archiveError} action={filter === 'all' ? 'Refresh archive' : 'Show all events'} onAction={filter === 'all' ? monitor.refresh : () => changeFilter('all')}>{filter === 'all' ? hiddenIds.length ? 'Past events are cleared from this browser. Your photos are still saved; new captures will appear here automatically.' : 'Received camera captures will appear here, grouped into five-frame events.' : 'Choose another filter to explore your camera archive.'}</EmptyState> : <div className="events-grid">{filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE).map((event, i) => <EventCard key={event.id} event={event} index={i} onOpen={openEvent} />)}</div>}
             <Pagination page={safePage} pages={pages} total={filtered.length} onChange={next => { setPage(next); window.scrollTo({ top: 0, behavior: 'smooth' }) }} />
           </>}
           {current.page === 'system' && <SystemPage monitor={monitor} onNavigate={navigate} />}

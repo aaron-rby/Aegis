@@ -30,9 +30,7 @@ frontend/preview*.png
 **/config.local.*
 firmware/**/config.h
 firmware/**/secrets.h
-# These existing sketches contain embedded Wi-Fi passwords and access tokens.
-firmware/main_ml_alarm/mlids/mlids.ino
-firmware/camera_resolution_test/camera_resolution_test.ino
+# Device configuration headers remain local.
 *.pem
 *.key
 
@@ -118,3 +116,23 @@ Desktop.ini
 # Local hardware test credentials and temporary fixture folders
 **/.device_token
 **/sentinel-hardware-fixture-*/
+
+# Private original ESP32-CAM captures for dataset collection
+/captures/
+
+# Generated ML annotations and prediction records
+/ml/gallery_predictions/
+# Private manually reviewed camera dataset and annotation state
+/ml/camera_labels/
+/ml/camera_dataset*/
+/ml/runs_camera/
+
+# Local dataset staging and portable GPU training packages
+/ml/archive_sources/
+/ml/gpu_dataset_*/
+/ml/gpu_dataset_*.zip
+
+# Isolated GPU runtimes and local training downloads
+**/.venv*/
+/ml/.cuda-wheels/
+/ml/evaluation/

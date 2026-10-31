@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { ArrowUpRight, Check, ChevronLeft, ChevronRight, CircleAlert, Clock3, ImageOff, Layers3, LoaderCircle, ScanLine, ShieldCheck } from 'lucide-react'
 import { formatDate, shortEvent } from '../lib/events.js'
-const STATES = { person: ['Person detected', ScanLine], no_person: ['No person detected', Check], pending: ['Needs analysis', Clock3], processing: ['Processing', LoaderCircle], error: ['Analysis error', CircleAlert], online: ['Connected', Check], offline: ['Unavailable', CircleAlert], unknown: ['Not configured', ShieldCheck] }
+const STATES = { cancelled: ['Analysis cancelled', Clock3], person: ['Person detected', ScanLine], no_person: ['No person detected', Check], pending: ['Needs analysis', Clock3], processing: ['Processing', LoaderCircle], error: ['Analysis error', CircleAlert], online: ['Connected', Check], offline: ['Unavailable', CircleAlert], unknown: ['Not configured', ShieldCheck] }
 export function Badge({ state = 'pending', children }) {
   const [label, Icon] = STATES[state] || STATES.pending
   return <span className={`badge badge--${state}`}><Icon size={12} aria-hidden="true" />{children || label}</span>

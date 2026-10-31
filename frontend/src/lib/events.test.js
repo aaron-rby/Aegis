@@ -29,3 +29,13 @@ test('events are sorted by their latest received frame', () => {
   const events = groupEvents([photo(1), photo(5, 'no_person_detected', 'test-burst-2')])
   assert.equal(events[0].id, 'test-burst-2')
 })
+
+// Queue cancellation preserves frames without declaring a negative result.
+test('cancelled analysis is neither pending forever nor no-person evidence', () => {
+  const photos = Array.from({length:5},(_,i)=>({id:`cancel-${i}`,burst_id:'cancel',photo_number:i+1,ml_state:'cancelled',received_at:'2026-10-26T10:00:00Z'}))
+  const [event] = groupEvents(photos)
+  assert.equal(event.state,'cancelled')
+  assert.equal(event.pending,0)
+  assert.equal(event.received,5)
+  assert.equal(matchesFilter(event,'no_person'),false)
+})

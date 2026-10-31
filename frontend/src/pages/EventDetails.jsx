@@ -66,6 +66,7 @@ export default function EventDetails({ event, onBack }) {
       {photo?.error && <div className="frame-error" role="status"><strong>Processing error</strong><p>{photo.error}</p></div>}
       <div className="evidence-note"><ScanLine size={17} /><p>Person detection does not establish identity or authorization. Review the original image alongside the result.</p></div>
       <details className="technical-details"><summary>Technical details <ChevronDown size={15} /></summary><dl><InfoRow label="Event ID"><span className="copyable"><code>{event.id}</code><button className="icon-button" onClick={copyId} aria-label="Copy event ID">{copied ? <Check size={13} /> : <Copy size={13} />}</button></span></InfoRow>{copyFailed && <p role="status">Copy unavailable. Select the ID to copy it manually.</p>}<InfoRow label="Filename"><code>{photo?.name || 'Not received'}</code></InfoRow><InfoRow label="Photo ID"><code>{photo?.id || 'Not received'}</code></InfoRow><InfoRow label="Authorization">Not evaluated</InfoRow></dl></details>
+
     </aside></div>
   </>
 }

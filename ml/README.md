@@ -1,4 +1,6 @@
-# ML: person verification
+# Aegis ML: person verification
+
+**Current gallery workflow:** the repository-root START_ALL.bat uses the configured local YOLO11m worker at threshold 0.35 and size 960. The standalone service below defaults to person_ft.pt at 0.50. Model weights are not bundled; supply the appropriate checkpoint first. See [the project README](../README.md) and [results interpretation](../docs/results.md).
 
 Run commands from this folder. Use `venv`, freshly recreated on this PC. The incomplete copied environment is preserved as `venv_legacy`; the previous working `.venv` remains available but launchers now use `venv`.
 

@@ -1,4 +1,4 @@
-"""Read existing ESP32 sensor logs. Never sends commands or flashes firmware."""
+"""Read ESP32 sensor logs and send an explicit manual camera request. Never flashes firmware."""
 from __future__ import annotations
 
 import json
@@ -75,6 +75,7 @@ class SerialBridge:
         self.lock = threading.RLock()
         self.lifecycle = threading.Lock()
         self.handle = None
+        self.last_trigger = None
         self.thread = None
         self.stop = threading.Event()
         self.state = {"connected": False, "port": None, "baudrate": 115200,
@@ -106,7 +107,7 @@ class SerialBridge:
             raise ValueError("Unsupported baud rate")
         if port not in {p["port"] for p in self.ports()}:
             raise ValueError("This serial port is not detected. Connect the ESP32 with a USB data cable, then refresh ports.")
-        handle = serial.Serial(port=None, baudrate=baudrate, timeout=0.5)
+        handle = serial.Serial(port=None, baudrate=baudrate, timeout=0.5, write_timeout=1)
         # Avoid deliberately asserting reset/boot lines. Some USB adapters may still reset on open.
         handle.dtr = False
         handle.rts = False
@@ -128,6 +129,27 @@ class SerialBridge:
             self.thread = threading.Thread(target=self._read, args=(handle, self.stop, self.state["session_id"]), daemon=True)
             self.thread.start()
         return self.status()
+
+    def trigger_camera(self):
+        # Reuse the one existing port; never create another serial reader.
+        with self.lifecycle, self.lock:
+            now = time.monotonic()
+            if not self.handle or not self.state["connected"]:
+                raise ValueError("Connect the main ESP32 USB port in Hardware first.")
+            last = self.state.get("last_sample")
+            if last is None or time.time() - last >= 15:
+                raise ValueError("Fresh controller readings are required before a manual trigger.")
+            if self.state.get("controller_state") != "ARMED":
+                raise ValueError("Controller is not armed. Clear the sensor zone and wait for rearming.")
+            if self.last_trigger is not None and now - self.last_trigger < 3:
+                raise ValueError("A trigger was just sent. Wait for the controller to update.")
+            try:
+                if self.handle.write(b"T\n") != 2:
+                    raise ValueError("Incomplete USB command; capture is not confirmed.")
+            except (serial.SerialException, OSError) as exc:
+                raise ValueError("Could not send the camera request. Check USB and reconnect.") from exc
+            self.last_trigger = now
+            return {"sent": True, "detail": "Request sent to the controller. Waiting for camera uploads; capture is not yet confirmed."}
 
     def disconnect(self):
         with self.lifecycle:
@@ -175,6 +197,7 @@ class SerialBridge:
                         with self.lock:
                             self.state["samples_received"] += 1
                             self.state["last_sample"] = time.time()
+                            self.state["controller_state"] = sample.get("controller_state")
                         self.on_sample({**sample, "device_id": f"ESP32 · {handle.port}",
                                         "transport": "usb", "session_id": session_id})
                 if len(buffer) > 8192:

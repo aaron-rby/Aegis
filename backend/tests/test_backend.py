@@ -138,7 +138,7 @@ class BackendTest(unittest.TestCase):
                 self.assertEqual(get("/photos/" + names[0] + ".jpg")[1], jpeg)
                 self.assertEqual(json.loads(get("/api/photos/" + names[0])[1])["id"], names[0])
                 index = get("/")[1]
-                self.assertTrue(b"Sentinel AI" in index or b"Vigil" in index or b"Intruder camera gallery" in index)
+                self.assertTrue(b"Aegis" in index or b"Sentinel AI" in index or b"Vigil" in index or b"Intruder camera gallery" in index)
                 if b"Vigil" in index or b"Sentinel AI" in index:
                     import re
                     asset = re.search(rb'src="(/assets/[^"]+\.js)"', index)

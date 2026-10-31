@@ -62,6 +62,8 @@ def atomic_write(path: Path, data: bytes):
 def process_job(store: Store, job: dict, detector, cv2, model: Path, confidence: float):
     identifier = job["id"]
     source = Path(job["file_path"])
+    image_payload = None
+    if not store.job_is_processing(identifier): return "cancelled", {"classification": "ANALYSIS CANCELLED"}
     record = {"source": str(source), "processed_at": datetime.now(timezone.utc).isoformat(),
               "model": str(model), "threshold": confidence, "authorization": "not_evaluated"}
     try:
@@ -69,6 +71,7 @@ def process_job(store: Store, job: dict, detector, cv2, model: Path, confidence:
             raise ValueError("Job source is outside the capture directory")
         image = detector.load_image(source)
         result = detector.verify_person(image, conf=confidence)
+        if not store.job_is_processing(identifier): return "cancelled", {"classification": "ANALYSIS CANCELLED"}
         record.update(result)
         record["classification"] = "PERSON DETECTED" if result["person"] else "NO PERSON DETECTED"
         annotated = detector.annotate(image, result)
@@ -78,7 +81,7 @@ def process_job(store: Store, job: dict, detector, cv2, model: Path, confidence:
         ok, encoded = cv2.imencode(".jpg", annotated)
         if not ok: raise ValueError("Could not encode annotation")
         image_name = f"{identifier}-ml.jpg"
-        atomic_write(store.predictions / image_name, encoded.tobytes())
+        image_payload = (store.predictions / image_name, encoded.tobytes())
         record["annotated_image"] = image_name
         state = "person_detected" if result["person"] else "no_person_detected"
         error = None
@@ -87,8 +90,12 @@ def process_job(store: Store, job: dict, detector, cv2, model: Path, confidence:
                       confidence=0.0, count=0, annotated_image=None)
         state, error = "error", str(exc)
     record["processed_at"] = datetime.now(timezone.utc).isoformat()
-    atomic_write(store.predictions / f"{identifier}-ml.json", json.dumps(record, indent=2).encode("utf-8"))
-    store.finish_job(identifier, state, record, error)
+    def write_artifacts():
+        if image_payload is not None: atomic_write(*image_payload)
+        atomic_write(store.predictions / f"{identifier}-ml.json", json.dumps(record, indent=2).encode("utf-8"))
+    # Commit cancellation/result atomically with the DB lock; late results cannot win.
+    if not store.finish_job(identifier, state, record, error, write_artifacts=write_artifacts):
+        return "cancelled", {"classification": "ANALYSIS CANCELLED"}
     return state, record
 
 

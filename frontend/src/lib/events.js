@@ -21,9 +21,10 @@ export function groupEvents(photos) {
     event.received = event.photos.length
     event.people = event.photos.filter(p => p.ml_state === 'person_detected').length
     event.errors = event.photos.filter(p => p.ml_state === 'error').length
-    event.pending = event.photos.filter(p => !['person_detected', 'no_person_detected', 'error'].includes(p.ml_state)).length
+    event.cancelled = event.photos.filter(p => p.ml_state === 'cancelled').length
+    event.pending = event.photos.filter(p => !['person_detected', 'no_person_detected', 'error', 'cancelled'].includes(p.ml_state)).length
     event.incomplete = event.received < event.expected
-    event.state = event.people ? 'person' : event.errors ? 'error' : event.pending || event.incomplete ? 'pending' : 'no_person'
+    event.state = event.people ? 'person' : event.errors ? 'error' : event.pending || event.incomplete ? 'pending' : event.cancelled ? 'cancelled' : 'no_person'
     event.firstAt = event.photos.reduce((v, p) => !v || p.received_at < v ? p.received_at : v, null)
     event.lastAt = event.photos.reduce((v, p) => !v || p.received_at > v ? p.received_at : v, null)
     event.preview = event.photos.find(p => p.ml_state === 'person_detected') || event.photos.at(-1)
@@ -37,5 +38,5 @@ export function matchesFilter(event, filter) {
   if (filter === 'pending') return event.pending > 0 || event.incomplete
   return event.state === 'no_person'
 }
-export function photoState(photo) { return ({ person_detected: 'person', no_person_detected: 'no_person', error: 'error' })[photo?.ml_state] || 'pending' }
+export function photoState(photo) { return ({ person_detected: 'person', no_person_detected: 'no_person', error: 'error', cancelled: 'cancelled' })[photo?.ml_state] || 'pending' }
 export function modelName(path) { return path ? String(path).split(/[\\/]/).at(-1) : 'Not reported' }

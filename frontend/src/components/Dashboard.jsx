@@ -18,7 +18,7 @@ function SystemRow({ icon: Icon, name, value, tone }) {
 export function Sidebar({ section, onSection, offline, workerOnline, status }) {
   const uploadTime = useRelativeTime(status?.last_camera_upload?.received_at)
   return <aside className="glass sidebar">
-    <div className="brand"><span className="brand-mark"><ShieldCheck size={22} strokeWidth={2} /></span><div className="brand-words"><strong>VIGIL</strong><span>COMMAND CENTER</span></div></div>
+    <div className="brand"><span className="brand-mark"><ShieldCheck size={22} strokeWidth={2} /></span><div className="brand-words"><strong>AEGIS</strong><span>COMMAND CENTER</span></div></div>
     <div className="nav-label">WORKSPACE</div>
     <nav className="side-nav" aria-label="Main navigation">
       <button className={section === 'photos' ? 'active' : ''} onClick={() => onSection('photos')} aria-label="Photo gallery" title="Photo gallery"><Image size={18} /><span>Photo gallery</span></button>

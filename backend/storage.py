@@ -39,6 +39,10 @@ class Store:
                     prediction TEXT,
                     error TEXT
                 );
+                CREATE TABLE IF NOT EXISTS deleted_events (event_id TEXT PRIMARY KEY, deleted_at TEXT NOT NULL);
+                CREATE VIEW IF NOT EXISTS active_photos AS SELECT p.* FROM photos p
+                WHERE NOT EXISTS (SELECT 1 FROM deleted_events d
+                    WHERE d.event_id=COALESCE(p.burst_id,'capture:' || p.id));
                 CREATE INDEX IF NOT EXISTS photos_received ON photos(received_at DESC, id DESC);
                 CREATE INDEX IF NOT EXISTS photos_burst ON photos(burst_id, photo_number);
                 CREATE TABLE IF NOT EXISTS service_state (
@@ -61,7 +65,7 @@ class Store:
                 db.execute("UPDATE photos SET ml_state='legacy_unprocessed' WHERE ml_state='queued' AND prediction IS NULL")
                 db.execute("INSERT INTO service_state(name,value) VALUES ('legacy_state_migrated','1')")
             # Repair photos uploaded before variable-width camera session IDs were recognized.
-            for row in db.execute("SELECT id FROM photos WHERE burst_id IS NULL").fetchall():
+            for row in db.execute("SELECT id FROM active_photos WHERE burst_id IS NULL").fetchall():
                 burst_id, photo_number = camera_parts(row["id"])
                 if burst_id is not None:
                     db.execute("UPDATE photos SET burst_id=?,photo_number=? WHERE id=?",
@@ -96,7 +100,7 @@ class Store:
                 (identifier, burst_id, photo_number, received_at, str(path), stat.st_size,
                  "legacy_unprocessed" if legacy else "queued")).rowcount
             if not legacy and (inserted or db.execute(
-                    "SELECT ml_state FROM photos WHERE id=?", (identifier,)).fetchone()[0] == "queued"):
+                    "SELECT ml_state FROM active_photos WHERE id=?", (identifier,)).fetchone()[0] == "queued"):
                 db.execute("""INSERT OR IGNORE INTO ml_jobs(photo_id,state,queued_at)
                     VALUES (?,'queued',?)""", (identifier, received_at))
             if not legacy and record_upload:
@@ -161,6 +165,14 @@ class Store:
             "annotated_url": "/ml-images/" + prediction["annotated_image"] if prediction and prediction.get("annotated_image") else None,
         }
 
+    def delete_event(self, event_id: str):
+        with self.connect() as db:
+            rows = db.execute("SELECT id FROM active_photos WHERE COALESCE(burst_id,'capture:' || id)=?", (event_id,)).fetchall()
+            if not rows:
+                return None
+            db.execute("INSERT OR IGNORE INTO deleted_events VALUES (?,?)", (event_id, datetime.now(timezone.utc).isoformat()))
+            return {"deleted": True, "event_id": event_id, "frames": len(rows), "files_preserved": True}
+
     def photos_page(self, page: int, per_page: int, person_filter: str = "all", burst_id: str | None = None):
         offset = (page - 1) * per_page
         states = {"person": ("person_detected",), "no_person": ("no_person_detected",),
@@ -175,27 +187,27 @@ class Store:
             parameters.append(burst_id)
         where = " WHERE " + " AND ".join(conditions) if conditions else ""
         with self.connect() as db:
-            total = db.execute("SELECT COUNT(*) FROM photos" + where, parameters).fetchone()[0]
-            rows = db.execute("SELECT * FROM photos" + where + " ORDER BY received_at DESC,id DESC LIMIT ? OFFSET ?",
+            total = db.execute("SELECT COUNT(*) FROM active_photos" + where, parameters).fetchone()[0]
+            rows = db.execute("SELECT * FROM active_photos" + where + " ORDER BY received_at DESC,id DESC LIMIT ? OFFSET ?",
                               (*parameters, per_page, offset)).fetchall()
         return {"items": [self.as_photo(row) for row in rows], "page": page,
                 "per_page": per_page, "total": total, "pages": (total + per_page - 1) // per_page}
 
     def photo(self, identifier: str):
         with self.connect() as db:
-            row = db.execute("SELECT * FROM photos WHERE id=?", (identifier,)).fetchone()
+            row = db.execute("SELECT * FROM active_photos WHERE id=?", (identifier,)).fetchone()
         return self.as_photo(row) if row else None
 
     def bursts_page(self, page: int, per_page: int):
         with self.connect() as db:
-            total = db.execute("SELECT COUNT(DISTINCT burst_id) FROM photos WHERE burst_id IS NOT NULL").fetchone()[0]
+            total = db.execute("SELECT COUNT(DISTINCT burst_id) FROM active_photos WHERE burst_id IS NOT NULL").fetchone()[0]
             rows = db.execute("""SELECT burst_id,COUNT(*) received,
                 SUM(CASE WHEN ml_state IN ('person_detected','no_person_detected','error') THEN 1 ELSE 0 END) finished,
                 SUM(CASE WHEN ml_state='error' THEN 1 ELSE 0 END) errors,
                 GROUP_CONCAT(photo_number) photo_numbers,
                 GROUP_CONCAT(CASE WHEN ml_state IN ('person_detected','no_person_detected','error') THEN photo_number END) finished_numbers,
                 MIN(received_at) first_received,MAX(received_at) last_received
-                FROM photos WHERE burst_id IS NOT NULL GROUP BY burst_id
+                FROM active_photos WHERE burst_id IS NOT NULL GROUP BY burst_id
                 ORDER BY last_received DESC,burst_id DESC LIMIT ? OFFSET ?""",
                 (per_page, (page - 1) * per_page)).fetchall()
         return {"items": [dict(row) for row in rows], "page": page,
@@ -203,13 +215,13 @@ class Store:
 
     def status(self, model: Path):
         with self.connect() as db:
-            counts = {row[0]: row[1] for row in db.execute("SELECT ml_state,COUNT(*) FROM photos GROUP BY ml_state")}
+            counts = {row[0]: row[1] for row in db.execute("SELECT ml_state,COUNT(*) FROM active_photos GROUP BY ml_state")}
             job_counts = {row[0]: row[1] for row in db.execute("SELECT state,COUNT(*) FROM ml_jobs GROUP BY state")}
             last = db.execute("SELECT value FROM service_state WHERE name='last_camera_upload'").fetchone()
             heartbeat = db.execute("SELECT value FROM service_state WHERE name='worker_heartbeat'").fetchone()
             worker_id = db.execute("SELECT value FROM service_state WHERE name='worker_id'").fetchone()
             worker_model = db.execute("SELECT value FROM service_state WHERE name='worker_model'").fetchone()
-            total = db.execute("SELECT COUNT(*) FROM photos").fetchone()[0]
+            total = db.execute("SELECT COUNT(*) FROM active_photos").fetchone()[0]
         # The old folder watcher has no heartbeat; never claim it is live based on files.
         heartbeat_at = heartbeat[0] if heartbeat else None
         live = False
@@ -221,7 +233,7 @@ class Store:
                            "id": worker_id[0] if worker_id else None,
                            "model": worker_model[0] if worker_model else None},
                 "jobs": {"queued": job_counts.get("queued", 0), "processing": job_counts.get("processing", 0),
-                         "errors": job_counts.get("error", 0),
+                         "errors": job_counts.get("error", 0), "cancelled": job_counts.get("cancelled", 0),
                          "legacy_unprocessed": counts.get("legacy_unprocessed", 0)},
                 "photos_total": total, "configured_model": str(model)}
 
@@ -230,12 +242,29 @@ class Store:
         cutoff = (datetime.now(timezone.utc) - timedelta(seconds=max_age_seconds)).isoformat()
         with self.connect() as db:
             row = db.execute("""SELECT COALESCE(p.burst_id,p.id) AS event_id
-                FROM ml_jobs j JOIN photos p ON p.id=j.photo_id
+                FROM ml_jobs j JOIN active_photos p ON p.id=j.photo_id
                 WHERE j.state='person_detected' AND p.ml_state='person_detected'
                   AND p.received_at>=? AND j.finished_at>=?
                 ORDER BY j.finished_at DESC,j.photo_id DESC LIMIT 1""",
                 (cutoff, cutoff)).fetchone()
         return row["event_id"] if row else None
+
+    def clear_processing_queue(self):
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            rows = db.execute("SELECT photo_id,state FROM ml_jobs WHERE state IN ('queued','processing')").fetchall()
+            now = datetime.now(timezone.utc).isoformat()
+            for row in rows:
+                db.execute("UPDATE ml_jobs SET state='cancelled',finished_at=?,error=NULL WHERE photo_id=?", (now, row['photo_id']))
+                db.execute("UPDATE photos SET ml_state='cancelled',error=NULL WHERE id=? AND ml_state IN ('queued','processing')", (row['photo_id'],))
+            return {"cancelled": len(rows), "queued_cancelled": sum(r['state']=='queued' for r in rows),
+                    "processing_cancelled": sum(r['state']=='processing' for r in rows),
+                    "detail": "Pending analysis cancelled. Photos and completed results are preserved. New uploads will be analyzed normally. An in-flight inference may finish computing before the worker moves on."}
+
+    def job_is_processing(self, identifier):
+        with self.connect() as db:
+            row = db.execute("SELECT state FROM ml_jobs WHERE photo_id=?", (identifier,)).fetchone()
+            return bool(row and row['state']=='processing')
 
     def recover_processing(self):
         """Only call after obtaining the exclusive worker lock."""
@@ -248,7 +277,7 @@ class Store:
     def claim_job(self, worker_id: str):
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            row = db.execute("""SELECT p.id,p.file_path FROM ml_jobs j JOIN photos p ON p.id=j.photo_id
+            row = db.execute("""SELECT p.id,p.file_path FROM ml_jobs j JOIN active_photos p ON p.id=j.photo_id
                 WHERE j.state='queued' ORDER BY j.queued_at,j.photo_id LIMIT 1""").fetchone()
             if not row: return None
             now = datetime.now(timezone.utc).isoformat()
@@ -257,7 +286,7 @@ class Store:
             db.execute("UPDATE photos SET ml_state='processing',error=NULL WHERE id=?", (row["id"],))
             return dict(row)
 
-    def finish_job(self, identifier: str, state: str, prediction: dict, error: str | None = None):
+    def finish_job(self, identifier: str, state: str, prediction: dict, error: str | None = None, write_artifacts=None):
         if state not in ("person_detected", "no_person_detected", "error"):
             raise ValueError("Invalid final ML state")
         now = datetime.now(timezone.utc).isoformat()
@@ -265,9 +294,14 @@ class Store:
             db.execute("BEGIN IMMEDIATE")
             changed = db.execute("""UPDATE ml_jobs SET state=?,finished_at=?,error=?
                 WHERE photo_id=? AND state='processing'""", (state, now, error, identifier)).rowcount
-            if changed != 1: raise RuntimeError(f"Job is no longer processing: {identifier}")
+            if changed != 1:
+                existing = db.execute("SELECT state FROM ml_jobs WHERE photo_id=?", (identifier,)).fetchone()
+                if existing and existing['state']=='cancelled': return False
+                raise RuntimeError(f"Job is no longer processing: {identifier}")
+            if write_artifacts: write_artifacts()
             db.execute("UPDATE photos SET ml_state=?,prediction=?,error=? WHERE id=?",
                        (state, json.dumps(prediction), error, identifier))
+        return True
 
     def heartbeat(self, worker_id: str, model: Path):
         now = datetime.now(timezone.utc).isoformat()

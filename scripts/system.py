@@ -65,7 +65,8 @@ def gallery_http():
             body = response.read(4096).decode("utf-8", "replace")
             return response.status, any(title in body for title in (
                 "<title>Vigil — Intrusion Command Center</title>",
-                "<title>Sentinel AI — Intrusion Monitoring</title>"))
+                "<title>Sentinel AI — Intrusion Monitoring</title>",
+                "<title>Aegis — Intrusion Monitoring</title>"))
     except HTTPError as exc:
         return exc.code, False
     except (URLError, OSError, TimeoutError):
@@ -223,6 +224,7 @@ def start(config):
 
 def _start_locked(config):
     preflight(config)
+    print("Checking Aegis backend on port 5000...", flush=True)
     status, ours = gallery_http()
     if status is not None and not ours:
         raise RuntimeError(f"Port 5000 answers HTTP {status} from another service; close it before starting")
@@ -310,6 +312,9 @@ def main():
             backup(config)
             return 0
         return check(config)
+    except KeyboardInterrupt:
+        print("Startup/check cancelled. Existing services were left running.", file=sys.stderr, flush=True)
+        return 130
     except (OSError, RuntimeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1

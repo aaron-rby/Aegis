@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1050" viewBox="0 0 1200 1050">
+<style>text{font-family:Arial,sans-serif;fill:#223c32}.title{font-size:28px;font-weight:700}.heading{font-size:23px;font-weight:700}.label{font-size:18px}.note{font-size:16px;fill:#60766a}.box{fill:#fff;stroke:#bdccbf;stroke-width:2}.wire{fill:none;stroke-width:4;stroke-linejoin:round}.ground{stroke:#426eac}.rx{stroke:#ae6d2f}.tx{stroke:#8063aa}.power{stroke:#bc5146}.trigger{stroke:#5f9354}</style>
+<rect width="1200" height="1050" fill="#f4f7ef"/>
+<text x="40" y="46" class="title">ESP32-CAM + OV3660 — programming and running</text>
+<text x="40" y="76" class="note">Logical connections only. Use printed pin labels; boxes do not represent physical pin positions.</text>
+<rect x="25" y="100" width="1150" height="465" rx="16" class="box"/>
+<text x="50" y="139" class="heading">1. PROGRAMMING: use the main ESP32's existing USB-to-UART bridge</text>
+<rect x="65" y="175" width="340" height="280" rx="12" fill="#e4eddf"/>
+<text x="88" y="208" class="heading">Main ESP32 DevKit</text>
+<text x="88" y="238" class="note">USB connected to laptop</text>
+<text x="88" y="284" class="label">GPIO3 / RX0</text><text x="88" y="337" class="label">GPIO1 / TX0</text>
+<text x="88" y="390" class="label">GND</text>
+<text x="88" y="427" class="label">EN ── GND (hold main chip reset)</text>
+<rect x="770" y="175" width="355" height="280" rx="12" fill="#e4eddf"/>
+<text x="792" y="208" class="heading">ESP32-CAM / OV3660</text>
+<text x="792" y="238" class="note">Classic AI-Thinker-compatible pin map</text>
+<text x="792" y="284" class="label">U0R / RX0 / GPIO3</text><text x="792" y="337" class="label">U0T / TX0 / GPIO1</text>
+<text x="792" y="390" class="label">GND</text>
+<text x="792" y="427" class="label">GPIO0 ── GND (upload only)</text>
+<path d="M405 278H770" class="wire rx"/><path d="M405 331H770" class="wire tx"/><path d="M405 384H770" class="wire ground"/>
+<text x="450" y="267" class="note">USB bridge TX → camera RX</text><text x="450" y="320" class="note">camera TX → USB bridge RX</text>
+<text x="450" y="416" class="note">No GPIO19 → GPIO13 wire</text><text x="450" y="438" class="note">during programming</text>
+<text x="65" y="490" class="label">Separate regulated 5 V supply: +5 V → camera 5V; GND → shared GND.</text>
+<text x="65" y="520" class="note">Same RX/TX labels apply because the main ESP32 chip is held reset; its USB-UART bridge is doing the programming.</text>
+<text x="65" y="545" class="note">Do not join the external +5 V output to the USB-powered main board's 5V pin. UART signals must be 3.3 V.</text>
+<rect x="25" y="590" width="1150" height="420" rx="16" class="box"/>
+<text x="50" y="630" class="heading">2. NORMAL RUNNING: remove the programming jumpers and UART wires</text>
+<rect x="65" y="670" width="340" height="160" rx="12" fill="#e4eddf"/>
+<text x="88" y="704" class="heading">Main ESP32 DevKit</text>
+<text x="88" y="748" class="label">GPIO19 — camera trigger output</text>
+<text x="88" y="800" class="label">GND</text>
+<rect x="770" y="670" width="355" height="160" rx="12" fill="#e4eddf"/>
+<text x="792" y="704" class="heading">ESP32-CAM / OV3660</text>
+<text x="792" y="748" class="label">GPIO13 — trigger input</text>
+<text x="792" y="800" class="label">GND</text>
+<path d="M405 742H770" class="wire trigger"/>
+<circle cx="575" cy="742" r="6" fill="#5f9354"/>
+<path d="M575 742V763L567 769L583 777L567 785L583 793L567 801L575 807V846" class="wire trigger"/>
+<path d="M405 794H500V846H770V794" class="wire ground"/>
+<circle cx="575" cy="846" r="5" fill="#426eac"/>
+<text x="598" y="780" class="note">Existing 1 kΩ pull-down</text>
+<text x="598" y="804" class="note">Trigger node → GND</text>
+<text x="65" y="890" class="label">Remove main EN→GND and camera GPIO0→GND. Disconnect both UART jumper wires.</text>
+<text x="65" y="925" class="label">Keep camera on its stable 5 V supply; keep both grounds connected. Restart both boards.</text>
+<text x="65" y="958" class="note">PIR → main GPIO13; HC-SR04 TRIG → GPIO5; divided ECHO → GPIO18 (existing sensor wiring).</text>
+<text x="65" y="986" class="note">GPIO13 on the main ESP32 is the PIR input. GPIO13 on the camera is the trigger input. Do not mix them.</text>
+</svg>

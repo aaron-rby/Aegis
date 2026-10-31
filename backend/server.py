@@ -13,8 +13,9 @@ import os
 from pathlib import Path
 import re
 import tempfile
+import sqlite3
 import threading
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlsplit, unquote
 
 try:
     from PIL import Image, UnidentifiedImageError
@@ -26,12 +27,12 @@ from hardware import HardwareMonitor
 
 MAX_BYTES = 5 * 1024 * 1024
 ID = re.compile(r"[A-Za-z0-9-]{1,96}\Z")
-PAGE = b'''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Intruder camera gallery</title><style>body{font:16px system-ui;background:#101923;color:#ecf1f5;margin:32px}h1{margin-bottom:8px}p{color:#b5c8d8}#grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:20px}figure{margin:0;background:#203041;border-radius:12px;overflow:hidden}img{width:100%;display:block}figcaption{padding:14px;overflow-wrap:anywhere;font-size:14px}.prediction{font-weight:700;margin-top:7px}.person{color:#ff9f9f}.clear{color:#ffe08a}.pending{color:#b5c8d8}#status{margin:22px 0;color:#a7e3bd}</style></head><body><h1>Intruder camera gallery</h1><p>Camera JPEGs are saved on this PC and processed by the ML worker. No person detected is a model result, not proof the scene is empty.</p><p><a href="/ml/" style="color:#8ecbff">Open the full ML results page</a></p><div id="status">Connecting...</div><div id="grid"></div><script>let previous='';async function refresh(){try{const [pr,sr]=await Promise.all([fetch('/api/photos?per_page=100',{cache:'no-store'}),fetch('/api/status',{cache:'no-store'})]);if(!pr.ok||!sr.ok)throw Error();const photos=await pr.json(),status=await sr.json();document.querySelector('#status').textContent=photos.total+' photos saved | '+(status.worker.running?'ML worker online':'ML heartbeat unavailable')+' | Checking every 2 seconds';const signature=JSON.stringify(photos);if(signature!==previous){previous=signature;const grid=document.querySelector('#grid');grid.replaceChildren();for(const p of photos.items){const fig=document.createElement('figure'),img=document.createElement('img');img.src=p.annotated_url||p.image_url;img.alt=p.name;img.loading='lazy';const cap=document.createElement('figcaption');cap.append(document.createTextNode(p.name+' | '+p.received_at));const label=document.createElement('div');label.className='prediction '+(p.prediction?(p.prediction.person?'person':'clear'):'pending');label.textContent=p.prediction?(p.prediction.classification+' | confidence '+Math.round((p.prediction.confidence||0)*100)+'%'):'Waiting for ML prediction';cap.append(label);fig.append(img,cap);grid.append(fig)}}}catch(e){document.querySelector('#status').textContent='Server unavailable; retrying...'}}refresh();setInterval(refresh,2000);</script></body></html>'''
+PAGE = b'''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aegis camera gallery</title><style>body{font:16px system-ui;background:#101923;color:#ecf1f5;margin:32px}h1{margin-bottom:8px}p{color:#b5c8d8}#grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:20px}figure{margin:0;background:#203041;border-radius:12px;overflow:hidden}img{width:100%;display:block}figcaption{padding:14px;overflow-wrap:anywhere;font-size:14px}.prediction{font-weight:700;margin-top:7px}.person{color:#ff9f9f}.clear{color:#ffe08a}.pending{color:#b5c8d8}#status{margin:22px 0;color:#a7e3bd}</style></head><body><h1>Aegis camera gallery</h1><p>Camera JPEGs are saved on this PC and processed by the ML worker. No person detected is a model result, not proof the scene is empty.</p><p><a href="/ml/" style="color:#8ecbff">Open the full ML results page</a></p><div id="status">Connecting...</div><div id="grid"></div><script>let previous='';async function refresh(){try{const [pr,sr]=await Promise.all([fetch('/api/photos?per_page=100',{cache:'no-store'}),fetch('/api/status',{cache:'no-store'})]);if(!pr.ok||!sr.ok)throw Error();const photos=await pr.json(),status=await sr.json();document.querySelector('#status').textContent=photos.total+' photos saved | '+(status.worker.running?'ML worker online':'ML heartbeat unavailable')+' | Checking every 2 seconds';const signature=JSON.stringify(photos);if(signature!==previous){previous=signature;const grid=document.querySelector('#grid');grid.replaceChildren();for(const p of photos.items){const fig=document.createElement('figure'),img=document.createElement('img');img.src=p.annotated_url||p.image_url;img.alt=p.name;img.loading='lazy';const cap=document.createElement('figcaption');cap.append(document.createTextNode(p.name+' | '+p.received_at));const label=document.createElement('div');label.className='prediction '+(p.prediction?(p.prediction.person?'person':'clear'):'pending');label.textContent=p.prediction?(p.prediction.classification+' | confidence '+Math.round((p.prediction.confidence||0)*100)+'%'):'Waiting for ML prediction';cap.append(label);fig.append(img,cap);grid.append(fig)}}}catch(e){document.querySelector('#status').textContent='Server unavailable; retrying...'}}refresh();setInterval(refresh,2000);</script></body></html>'''
 
 
 def results_page(store: Store):
     with store.connect() as db:
-        rows = db.execute("SELECT * FROM photos WHERE prediction IS NOT NULL ORDER BY received_at DESC,id DESC LIMIT 200").fetchall()
+        rows = db.execute("SELECT * FROM active_photos WHERE prediction IS NOT NULL ORDER BY received_at DESC,id DESC LIMIT 200").fetchall()
     cards = []
     for row in rows:
         photo = store.as_photo(row)
@@ -41,11 +42,11 @@ def results_page(store: Store):
         name = html.escape(photo["name"])
         cards.append(f'<article><img src="{image}" alt="{name}"><p>{label}</p><small>{name}</small></article>')
     return ('<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="5">'
-            '<meta name="viewport" content="width=device-width,initial-scale=1"><title>Camera ML results</title>'
+            '<meta name="viewport" content="width=device-width,initial-scale=1"><title>Aegis ML results</title>'
             '<style>body{font:16px system-ui;background:#101923;color:#ecf1f5;padding:24px}main{display:grid;'
             'grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:16px}article{background:#203041;'
             'padding:12px;border-radius:10px;overflow-wrap:anywhere}img{width:100%}a{color:#8ecbff}</style></head>'
-            '<body><h1>Camera ML results</h1><p>No person detected is a model result, not proof of absence. '
+            '<body><h1>Aegis ML results</h1><p>No person detected is a model result, not proof of absence. '
             'Authorization is not evaluated.</p><p><a href="/">Back to gallery</a></p><main>'
             + ''.join(cards) + '</main></body></html>')
 
@@ -159,7 +160,7 @@ def make_handler(store: Store, token: str, model: Path, alarm_token: str | None 
             if path == "/api/ml-results":
                 store.sync_predictions()
                 with store.connect() as db:
-                    rows = db.execute("SELECT * FROM photos WHERE prediction IS NOT NULL ORDER BY received_at DESC,id DESC").fetchall()
+                    rows = db.execute("SELECT * FROM active_photos WHERE prediction IS NOT NULL ORDER BY received_at DESC,id DESC").fetchall()
                 results = []
                 for row in rows:
                     prediction = json.loads(row["prediction"])
@@ -180,15 +181,39 @@ def make_handler(store: Store, token: str, model: Path, alarm_token: str | None 
                     break
             return self.respond(404, "Not found")
 
+        def do_DELETE(self):
+            origin = self.headers.get("Origin")
+            allowed = {f"http://{host}:{port}" for host in ("localhost", "127.0.0.1", "[::1]") for port in (5000, 5173)}
+            if self.client_address[0] not in ("127.0.0.1", "::1") or (origin and origin not in allowed):
+                return self.respond(403, {"detail": "Delete events from this laptop only."})
+            path = urlsplit(self.path).path
+            if not path.startswith("/api/events/"):
+                return self.respond(404, {"detail": "Not found"})
+            event_id = unquote(path[len("/api/events/"):])
+            identifier = event_id.removeprefix("capture:")
+            if not ID.fullmatch(identifier):
+                return self.respond(400, {"detail": "Invalid event ID"})
+            result = store.delete_event(event_id)
+            return self.respond(200, result) if result else self.respond(404, {"detail": "Event no longer exists."})
+
         def do_POST(self):
             self.connection.settimeout(15)
             parts = urlsplit(self.path)
-            if parts.path in ("/api/serial/connect", "/api/serial/disconnect"):
+            if parts.path == "/api/queue/clear":
+                origin = self.headers.get("Origin")
+                allowed = {f"http://{host}:{port}" for host in ("localhost", "127.0.0.1", "[::1]") for port in (5000, 5173)}
+                if self.client_address[0] not in ("127.0.0.1", "::1") or origin not in allowed:
+                    return self.respond(403, {"detail": "Clear the queue from this laptop's dashboard only."})
+                try: return self.respond(200, store.clear_processing_queue())
+                except (OSError, sqlite3.Error): return self.respond(503, {"detail": "Queue could not be cleared. Try again."})
+            if parts.path in ("/api/serial/connect", "/api/serial/disconnect", "/api/serial/trigger"):
                 origin = self.headers.get("Origin")
                 allowed = {f"http://{host}:{port}" for host in ("localhost", "127.0.0.1", "[::1]") for port in (5000, 5173)}
                 if self.client_address[0] not in ("127.0.0.1", "::1") or (origin and origin not in allowed):
                     return self.respond(403, {"detail": "Control USB from this laptop's local dashboard only."})
                 try:
+                    if parts.path.endswith("trigger"):
+                        return self.respond(200, monitor.bridge.trigger_camera())
                     if parts.path.endswith("disconnect"):
                         return self.respond(200, monitor.bridge.disconnect())
                     length = int(self.headers.get("Content-Length", "0"))

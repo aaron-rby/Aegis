@@ -49,6 +49,11 @@ export function useHardware() {
     } catch (e) { setError(e.message) }
     finally { actionLock.current = false; setBusy(false) }
   }, [])
+  const triggerCamera = useCallback(async () => {
+    const result = await request('/api/serial/trigger', { method: 'POST' })
+    await pollRef.current()
+    return result
+  }, [])
   const age = snapshot.sample_age_seconds == null ? Infinity : snapshot.sample_age_seconds + (performance.now() - snapshot.fetchedAt) / 1000
-  return { snapshot, live: snapshot.online === true && age < 15, ports, error, busy, portsBusy, refreshPorts, action }
+  return { snapshot, live: snapshot.online === true && age < 15, ports, error, busy, portsBusy, refreshPorts, action, triggerCamera }
 }
