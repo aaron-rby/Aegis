@@ -1,5 +1,9 @@
 # Aegis architecture and control
 
+![System architecture from the final IDF-B report](assets/architecture-workflow.png)
+
+*Original architecture illustration extracted from the final IDF-B report.*
+
 ## Two layers
 
 PIR and ultrasonic sensors connect to the main ESP32. Three consecutive agreements request a wired ESP32-CAM trigger and short beep. The camera uploads images to a laptop, which preserves originals, queues SQLite jobs, runs YOLO and serves the Aegis dashboard. The main board polls for eligible person results and controls one shared buzzer. Neither ESP32 runs YOLO.
